@@ -6,8 +6,6 @@ describe Slop::Parser do
     @options = Slop::Options.new
     @verbose = @options.bool "-v", "--verbose"
     @name    = @options.string "-n", "--name"
-    @unused  = @options.string "--unused"
-    @parser  = Slop::Parser.new(@options)
     @result  = @parser.parse %w(foo -v --name lee argument)
   end
 

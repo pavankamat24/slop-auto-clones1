@@ -6,6 +6,8 @@ describe Slop::Parser do
     @options = Slop::Options.new
     @verbose = @options.bool "-v", "--verbose"
     @name    = @options.string "-n", "--name"
+    @unused  = @options.bool "--unused"
+    @parser  = @options.parser
     @result  = @parser.parse %w(foo -v --name lee argument)
   end
 
@@ -116,6 +118,56 @@ describe Slop::Parser do
   end
 
   describe "#arguments" do
+    it "processes every repeated option and preserves duplicate positional values" do
+      names = @options.array "--names"
+      tokens = %w(lee --names lee --names lee lee --names=bob --names=bob lee)
+      original = tokens.dup
+      result = @parser.parse(tokens.freeze)
+
+      assert_equal %w(lee lee bob bob), result[:names]
+      assert_equal 4, names.count
+      assert_equal %w(lee lee lee), result.arguments
+      assert_equal original, tokens
+    end
+
+    it "preserves repeated tokens after the double dash" do
+      @parser.parse %w(--name=lee -- --name=lee --name lee --)
+      assert_equal "lee", @name.value
+      assert_equal 1, @name.count
+      assert_equal %w(--name=lee --name lee --), @parser.arguments
+    end
+
+    it "does not parse a recognized flag consumed as a value" do
+      @parser.parse %w(--name --name --name bob tail)
+      assert_equal "bob", @name.value
+      assert_equal 2, @name.count
+      assert_equal %w(tail), @parser.arguments
+    end
+
+    it "retains unknown options when errors are suppressed" do
+      options = Slop::Options.new(suppress_errors: true)
+      options.string "--name"
+      result = options.parse %w(--unknown --name=lee --unknown)
+      assert_equal %w(--unknown --unknown), result.arguments
+    end
+
+    it "does bounded token comparison work for distinct inline options" do
+      comparisons = 0
+      token_class = Class.new(String) do
+        define_method(:==) do |other|
+          comparisons += 1
+          super(other)
+        end
+      end
+      tokens = Array.new(200) { |i| token_class.new("--name=#{i}") }
+      result = @parser.parse(tokens)
+
+      assert_equal "199", result[:name]
+      assert_equal tokens.length, @name.count
+      assert_empty result.arguments
+      assert_operator comparisons, :<=, tokens.length * 4
+    end
+
     it "returns all unparsed arguments" do
       assert_equal %w(foo argument), @parser.arguments
     end

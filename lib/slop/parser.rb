@@ -39,16 +39,17 @@ module Slop
       # ignore everything after "--"
       strings, ignored_args = partition(strings)
 
-      pairs = strings.each_cons(2).to_a
-      # this ensures we still support the last string being a flag,
-      # otherwise it'll only be used as an argument.
-      pairs << [strings.last, nil]
-
       @arguments = strings.dup
+      consumed = Array.new(strings.length, false)
+      skip_next = false
 
-      pairs.each_with_index do |pair, idx|
-        flag, arg = pair
+      strings.each_with_index do |flag, idx|
+        if skip_next
+          skip_next = false
+          next
+        end
         break if !flag
+        arg = strings[idx + 1]
 
         # support `foo=bar`
         orig_flag = flag.dup
@@ -57,27 +58,21 @@ module Slop
         end
 
         if opt = try_process(flag, arg)
-          # since the option was parsed, we remove it from our
-          # arguments (plus the arg if necessary)
-          # delete argument first while we can find its index.
-          if opt.expects_argument?
-
-            # if we consumed the argument, remove the next pair
-            if consume_next_argument?(orig_flag)
-              pairs.delete_at(idx + 1)
-            end
-
-            arguments.each_with_index do |argument, i|
-              if argument == orig_flag && !orig_flag.include?("=")
-                arguments.delete_at(i + 1)
-              end
-            end
+          # Track positions so repeated options do not rescan or shift
+          # the remaining arguments on every iteration.
+          consumed[idx] = true
+          if opt.expects_argument? && !orig_flag.include?("=")
+            consumed[idx + 1] = true if idx + 1 < strings.length
+            skip_next = consume_next_argument?(orig_flag)
           end
-          arguments.delete(orig_flag)
         end
       end
 
-      @arguments += ignored_args
+      @arguments = []
+      strings.each_with_index do |argument, idx|
+        @arguments << argument unless consumed[idx]
+      end
+      @arguments.concat(ignored_args)
 
       if !suppress_errors?
         unused_options.each do |o|

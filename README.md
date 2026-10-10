@@ -75,7 +75,6 @@ This example is really just to describe how the underlying API works.
 It's not necessarily the best way to do it.
 
 ```ruby
-opts = Slop::Options.new
 opts.banner = "usage: connect [options] ..."
 opts.separator ""
 opts.separator "Connection options:"

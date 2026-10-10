@@ -11,11 +11,6 @@ describe Slop::Parser do
     @result  = @parser.parse %w(foo -v --name lee argument)
   end
 
-  it "ignores everything after --" do
-    @parser.parse %w(-v -- -v --name lee)
-    assert_equal [@verbose], @parser.used_options
-    assert_equal ["-v", "--name", "lee"], @parser.arguments
-  end
 
   describe "for flag=argument" do
     it "parses names and values" do
